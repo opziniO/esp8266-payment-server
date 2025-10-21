@@ -46,3 +46,8 @@ app.post('/create-checkout', async (req, res) => {
 });
 
 app.listen(3000, ()=>console.log('server on 3000'));
+
+app.get("/", (req, res) => {
+  res.send("ESP8266 Payment Server çalışıyor 🚀");
+});
+
