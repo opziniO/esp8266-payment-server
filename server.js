@@ -1,54 +1,59 @@
-const express = require('express');
-const Stripe = require('stripe');
-const bodyParser = require('body-parser');
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import Stripe from "stripe";
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY); // test key: sk_test_...
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
-// Basit doğrulama: apiKeyHeader ile istek gelmeli (ESP ile paylaşacağın kısa token)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const API_TOKEN = process.env.API_TOKEN || "topsecret_esp_token";
 
+// Ana sayfa
 app.get("/", (req, res) => {
   res.send("ESP8266 Payment Server çalışıyor 🚀");
 });
 
-app.post('/create-checkout', async (req, res) => {
+// Ödeme oturumu oluşturma
+app.post("/create-checkout", async (req, res) => {
   try {
-    if (req.headers['x-api-token'] !== API_TOKEN) {
-      return res.status(401).json({error: 'Unauthorized'});
+    const { amount, token } = req.body;
+
+    // Güvenlik kontrolü (ESP8266 -> Server)
+    if (token !== API_TOKEN) {
+      return res.status(403).json({ error: "Geçersiz token" });
     }
 
-    let {amount, currency, description} = req.body;
-    // input validation
-    amount = Number(amount);
-    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({error:'invalid amount'});
-    currency = (currency || 'try').toLowerCase();
-    // Stripe expects integer in minor units (ör: kuruş). Burada örnek için 2 ondalık varsay.
-    const unit_amount = Math.round(amount * 100);
-
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: currency,
-          product_data: { name: description || 'Ödeme' },
-          unit_amount: unit_amount,
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "try",
+            product_data: {
+              name: "ESP8266 Bağlantılı Ödeme",
+            },
+            unit_amount: amount * 100, // TL -> kuruş
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: 'https://your-domain.com/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://your-domain.com/cancel',
+      ],
+      success_url: "https://esp8266-payment-server.onrender.com/success",
+      cancel_url: "https://esp8266-payment-server.onrender.com/cancel",
     });
 
-    res.json({url: session.url});
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({error: e.message});
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Sunucu hatası" });
   }
 });
 
-app.listen(3000, ()=>console.log('server on 3000'));
+// Başarılı / iptal sayfaları
+app.get("/success", (req, res) => res.send("Ödeme başarılı ✅"));
+app.get("/cancel", (req, res) => res.send("Ödeme iptal edildi ❌"));
 
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda çalışıyor...`));
