@@ -9,6 +9,10 @@ app.use(bodyParser.json());
 // Basit doğrulama: apiKeyHeader ile istek gelmeli (ESP ile paylaşacağın kısa token)
 const API_TOKEN = process.env.API_TOKEN || "topsecret_esp_token";
 
+app.get("/", (req, res) => {
+  res.send("ESP8266 Payment Server çalışıyor 🚀");
+});
+
 app.post('/create-checkout', async (req, res) => {
   try {
     if (req.headers['x-api-token'] !== API_TOKEN) {
@@ -47,7 +51,4 @@ app.post('/create-checkout', async (req, res) => {
 
 app.listen(3000, ()=>console.log('server on 3000'));
 
-app.get("/", (req, res) => {
-  res.send("ESP8266 Payment Server çalışıyor 🚀");
-});
 
